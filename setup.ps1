@@ -100,3 +100,11 @@ try {
     Write-Host "zoxide installed successfully."
 }
 catch { Write-Error "Failed to install zoxide. Error: $_" }
+
+# fzf Install
+try { winget install fzf }
+catch { Write-Error "Failed to install zoxide. Error: $_" }
+
+# cURL Install
+try { winget install cURL.cURL }
+catch { Write-Error "Failed to install zoxide. Error: $_" }
