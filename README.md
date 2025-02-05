@@ -1,17 +1,20 @@
-# 🎨 PowerShell Profile (Pretty PowerShell)
+<div align="center">
+<h1>PowerShell Profile</h1>
+<p>A stylish and functional PowerShell profile.</p>
+</div>
 
-A stylish and functional PowerShell profile that looks and feels almost as good as a Linux terminal.
+> [!TIP]
+> ChrisTitusTech's original Fork. This is a modification to adhere to my needs
 
-## ⚡ One Line Install (Elevated PowerShell Recommended)
+## Install -> One Line (Elevated PowerShell Recommended)
 
 Execute the following command in an elevated PowerShell window to install the PowerShell profile:
 
 ```
-irm "https://github.com/ChrisTitusTech/powershell-profile/raw/main/setup.ps1" | iex
+irm "https://github.com/Salc-wm/Powershell-WindowProfile/blob/main/setup.ps1" | iex
 ```
 
 ## 🛠️ Fix the Missing Font
-
 After running the script, you'll have two options for installing a font patched to support icons in PowerShell:
 
 ### 1) You will find a downloaded `cove.zip` file in the folder you executed the script from. Follow these steps to install the patched `Caskaydia Cove` nerd font family:
@@ -33,18 +36,18 @@ PS> oh-my-posh font install
     AnonymousPro
     Arimo
     AurulentSansMono
-    BigBlueTerminal
-    BitstreamVeraSansMono
+   ...etc
 
     •••••••••
     ↑/k up • ↓/j down • q quit • ? more</pre>
 3. With the up/down arrow keys, select the font you would like to install and press <kbd>ENTER</kbd>
 4. DONE!
    
-## Customize this profile
+## Customize Profile...
+**Do not make any changes to the `Microsoft.PowerShell_profile.ps1` file**,\
+since it's hashed and automatically overwritten by any commits to this repository.
 
-**Do not make any changes to the `Microsoft.PowerShell_profile.ps1` file**, since it's hashed and automatically overwritten by any commits to this repository.
-
-After the profile is installed and active, run the `Edit-Profile` function to create a separate profile file for your current user. Make any changes and customizations in this new file named `profile.ps1`.
+After the profile is installed and active, run the `Edit-Profile` function to create a\
+separate profile file for your current user. Make any changes and customizations in this new file named `profile.ps1`.
 
 Now, enjoy your enhanced and stylish PowerShell experience! 🚀
