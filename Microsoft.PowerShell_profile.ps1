@@ -86,6 +86,10 @@ function Clear-Cache {
     Write-Host "Cache clearing completed." -ForegroundColor Green
 }
 
+function set-title([string]$newtitle) {
+	$host.ui.RawUI.WindowTitle = $newtitle + ' – ' + $host.ui.RawUI.WindowTitle
+}
+
 # Admin Check and Prompt Customization
 $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 function prompt {
@@ -188,6 +192,14 @@ function devShellVS {
     & 'C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\Tools\Launch-VsDevShell.ps1' -Arch arm64 -HostArch amd64 -SkipAutomaticLocation
 }
 
+function get-serial-number {
+  Get-CimInstance -ClassName Win32_Bios | select-object serialnumber
+}
+
+function get-process-for-port($port) {
+	Get-Process -Id (Get-NetTCPConnection -LocalPort $port).OwningProcess
+}
+
 function unzip ($file) {
     Write-Output("Extracting", $file, "to", $pwd)
     $fullFile = Get-ChildItem -Path $pwd -Filter $file | ForEach-Object { $_.FullName }
@@ -226,6 +238,110 @@ function grep($regex, $dir) {
     }
     $input | select-string $regex
 }
+
+function Get-PathEnvironmentVariable {
+    param (
+        [ValidateSet('User','Machine','All')]$Scope='All'
+    )
+    <#
+    .Synopsis
+    Get a list of PATH environment variables.
+    Return object has two fields: Path and Scope.
+    Scope is either 'User' or 'Machine', suggesting whether this environment variable is available for the current user only or for all users on this machine.
+
+    .Parameter Scope
+    One of 'User', 'Machine', or 'All'. Default value 'All'.
+
+    .Notes
+    For PATH environment variable available for the current process, it is more convenient to use the $env:PATH variable. So it is not included here.
+    This command is useful only when a path's scope (User vs. Machine) matters to you.
+    #>
+
+    $machine_paths = try {
+        [System.Environment]::GetEnvironmentVariable('Path', 'Machine').Split(';') `
+        | Select-Object @{name='Path';exp={$_}},@{name='Scope';exp={'Machine'}} `
+        | Where-Object {$_.Path}
+    } catch { $null }
+    $user_paths = try {
+        [System.Environment]::GetEnvironmentVariable('Path', 'User').Split(';') `
+        | Select-Object @{name='Path';exp={$_}},@{name='Scope';exp={'User'}} `
+        | Where-Object {$_.Path}
+    } catch { $null }
+
+    switch ($Scope) {
+        'User' { return $user_paths }
+        'Machine' { return $machine_paths }
+        Default { return $machine_paths + $user_paths }
+    }
+}
+
+Function Test-Port {
+    <#
+        .SYNOPSIS
+            Test-Port is effectively a PowerShell replacement for telnet, to support testing of a specified IP port of a remote computer
+        .DESCRIPTION
+            Test-Port enables testing for any answer or open indication from a remote network port.
+        .PARAMETER Target
+            DNS name or IP address of a remote computer or network device to test response from.
+        .PARAMETER Port
+            IP port number to test on the TARGET.
+        .PARAMETER Timeout
+            Time-to-live (TTL) parameter for how long to wait for a response from the TARGET PORT.
+        .EXAMPLE
+            PS C:\> Test-Port RemoteHost 9997
+            Tests if the remote host is open on the default Splunk port.
+        .NOTES
+            NAME        :  Test-Port
+            VERSION     :  1.1.1
+            LAST UPDATED:  4/4/2015
+            AUTHOR      :  Bryan Dady
+        .INPUTS
+            None
+        .OUTPUTS
+            None
+    #>
+    [cmdletbinding()]
+    param(
+        [parameter(position = 0,
+          mandatory,
+          HelpMessage='Provide a DNS name or IP address of a remote computer or network device to test response from.'
+        )]
+        [String]$Target,
+
+        [parameter(position = 1,
+          mandatory,
+          HelpMessage='Specify an IP port number to test on the Target'
+        )]
+        [ValidateRange(1,50000)]
+        [int]$Port,
+
+        [int]$Timeout = 2000
+    )
+    Write-Verbose -Message ('{0} Starting {1}' -f (Get-Date), $PSCmdlet.MyInvocation.MyCommand.Name)
+    $OutputObj = New-Object -TypeName PSObject
+    $OutputObj | Add-Member -MemberType NoteProperty -Name TargetHostName -Value $Target
+    if((Get-Command Test-Connection -ErrorAction Ignore) -and (Test-Connection -ComputerName $Target -Count 2 -ErrorAction SilentlyContinue)) {
+        $OutputObj | Add-Member -MemberType NoteProperty -Name TargetHostStatus -Value 'ONLINE'
+    } else {
+        $OutputObj | Add-Member -MemberType NoteProperty -Name TargetHostStatus -Value 'OFFLINE'
+    }
+    $OutputObj | Add-Member -MemberType NoteProperty -Name PortNumber -Value $Port
+
+    $Socket = New-Object -TypeName System.Net.Sockets.TCPClient
+    $Connection = $Socket.BeginConnect($Target,$Port,$null,$null)
+    $null = $Connection.AsyncWaitHandle.WaitOne($Timeout,$false)
+    if($Socket.Connected -eq $true) {
+        $OutputObj | Add-Member -MemberType NoteProperty -Name ConnectionStatus -Value 'Success'
+        $OutputObj | Add-Member -MemberType NoteProperty -Name TargetHostStatus -Value 'ONLINE' -Force
+    } else {
+        $OutputObj | Add-Member -MemberType NoteProperty -Name ConnectionStatus -Value 'Failed'
+    }
+    $null = $Socket.Close
+    $OutputObj | Select-Object -Property TargetHostName, TargetHostStatus, PortNumber, ConnectionStatus
+    Write-Verbose -Message ("{0} Exiting {1}`n" -f (Get-Date), $PSCmdlet.MyInvocation.MyCommand.Name)
+}
+
+New-Alias -Name telnet -Value Test-Port -ErrorAction Ignore
 
 function df {
     get-volume
@@ -473,6 +589,8 @@ $($PSStyle.Foreground.Green)touch$($PSStyle.Reset) <file> - Creates a new empty 
 
 $($PSStyle.Foreground.Green)ff$($PSStyle.Reset) <name> - Finds files recursively with the specified name.
 
+$($PSStyle.Foreground.Green)Test-Port$($PSStyle.Reset) - Test-Port is effectively a PowerShell replacement for telnet, to support testing of a specified IP port of a remote computer.
+
 $($PSStyle.Foreground.Green)Get-PubIP$($PSStyle.Reset) - Retrieves the public IP address of the machine.
 
 $($PSStyle.Foreground.Green)winutil$($PSStyle.Reset) - Runs the latest WinUtil full-release script from Chris Titus Tech.
@@ -482,6 +600,8 @@ $($PSStyle.Foreground.Green)winutildev$($PSStyle.Reset) - Runs the latest WinUti
 $($PSStyle.Foreground.Green)uptime$($PSStyle.Reset) - Displays the system uptime.
 
 $($PSStyle.Foreground.Green)reload-profile$($PSStyle.Reset) - Reloads the current user's PowerShell profile.
+
+$($PSStyle.Foreground.Green)Get-PathEnvironmentVariable$($PSStyle.Reset) - Get a list of PATH environment variables.
 
 $($PSStyle.Foreground.Green)unzip$($PSStyle.Reset) <file> - Extracts a zip file to the current directory.
 
